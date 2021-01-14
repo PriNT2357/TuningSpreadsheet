@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+	<head>
+		<title>Airboy's Spreadsheet Conversion</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<script src="http://code.jquery.com/jquery-3.3.1.slim.js"></script>
+		<script src="js/jquery.csv.js"></script>
+		<script src="js/helpers.js"></script>
+		<script src="js/plotly-latest.min.js"></script>
+	</head>
+	<body>
+		<script>
+			$(document).ready(function() {
+			  if(isFileAPIAvailable()) {
+				$('#files').bind('change', handleDialog);
+			  }
+			});
+			
+			var data;
+			var data2;
+
+			function convertArrayFormat(data) {
+				var out=[];
+				for (row=1;row<data.length;row++){
+				  for (col=0;col<data[0].length;col++){
+					if (typeof out[col] === "undefined") out[col]=[];
+					out[col].push(data[row][col]);
+				  }
+				}
+				return out;
+			}
+
+			function populateColumnNames(data) {
+				//foreach data
+				//output a checkbox for the data[0]
+				$("#colnames").html("");
+				$("#colnames").append("<span>X Y</span></br>");
+				for (i = 0; i < data[0].length; i++) {
+					$("#colnames").append("<span><input type='radio' id='colx_"+i+"' name='X' value='"+i+"'><input type='checkbox' id='coly_"+i+"' name='' value='"+i+"'>"+data[0][i]+"</span><br/>");
+				}
+				
+				$('#colnames input:checkbox').change(function () {
+					updateGraph();
+				});
+			}
+			
+			function updateGraph() {
+				//get all selected Y items
+				//add them to the graph (limited to y2 right now)
+				var selected = $('#colnames input:checkbox:checked');
+				var plot = [];
+				for (i = 0; i < selected.length; i++) {
+					plot.push(data2[$(selected[i]).val()]);
+				}
+				renderGraph2(data2[0], plot);
+			}
+			
+			function renderGraph2(x, y) {
+				TESTER = document.getElementById('tester');
+				var traces = [];
+				for (i = 0; i < y.length; i++) {
+					traces.push({x: x, y: y[i], type: 'line'});
+				}
+				Plotly.newPlot( TESTER, traces, {
+				margin: { t: 0 } } );
+			}
+			
+			function renderGraph(x, y, y2) {
+				TESTER = document.getElementById('tester');
+				var trace1 = {
+					x: x,
+					y: y,
+					type: 'line'
+				};
+				var data = [trace1];
+				
+				if (typeof y2 !== "undefined") {
+					var trace2 = {
+						x: x,
+						y: y2,
+						type: 'line'
+					};
+					data.push(trace2);
+				}
+				Plotly.newPlot( TESTER, data, {
+				margin: { t: 0 } } );
+			}
+			
+			
+			function handleDialog(event) {
+			  var files = event.target.files;
+			  var file = files[0];
+
+			  var fileInfo = `
+				<span style="font-weight:bold;">${escape(file.name)}</span><br>
+				- FileType: ${file.type || 'n/a'}<br>
+				- FileSize: ${file.size} bytes<br>
+				- LastModified: ${file.lastModifiedDate ? file.lastModifiedDate.toLocaleDateString() : 'n/a'}
+			  `;
+			  $('#file-info').append(fileInfo);
+
+			  var reader = new FileReader();
+			  reader.readAsText(file);
+			  reader.onload = function(event){
+				var csv = event.target.result;
+				data = $.csv.toArrays(csv);
+				data2 = convertArrayFormat(data);
+				populateColumnNames(data);
+				renderGraph(data2[0], data2[1], data2[2]);
+				
+				$('#result').empty();
+				$('#result').html(JSON.stringify(data, null, 2));
+				
+			  }
+			}
+		</script>
+		<div id="container">
+			<section id="content">
+			  <h2>Description</h2>
+			  <p>Select your log file.</p>
+			  <hr>
+			  <h2>Input</h2>
+			  <input type="file" id="files" name="files[]" multiple />
+			  <hr />
+			  <h2>FileInfo</h2>
+			  <div id="file-info"></div>
+			  <hr />
+			  <h2>Result</h2>
+			  <textarea id="result" style="height: 250px;"></textarea>
+			  <div id="colnames"></div>
+			</section>
+		</div>
+		<hr/>
+		<div id="tester" style="width:600px;height:250px;"></div>
+		<script>
+		$(document).ready(function() {
+			TESTER = document.getElementById('tester');
+			Plotly.newPlot( TESTER, [{
+			x: [1, 2, 3, 4, 5],
+			y: [1, 2, 4, 8, 16] }], {
+			margin: { t: 0 } } );
+			});
+		</script>
+	</body>
+</html>
