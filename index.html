@@ -27,10 +27,12 @@ and open the template in the editor.
 
 			function convertArrayFormat(data) {
 				var out=[];
+				// Get column names
+				out.push(data[0]);
 				for (row=1;row<data.length;row++){
 				  for (col=0;col<data[0].length;col++){
-					if (typeof out[col] === "undefined") out[col]=[];
-					out[col].push(data[row][col]);
+					if (typeof out[col+1] === "undefined") out[col+1]=[];
+					out[col+1].push(data[row][col]);
 				  }
 				}
 				return out;
@@ -40,7 +42,7 @@ and open the template in the editor.
 				//foreach data
 				//output a checkbox for the data[0]
 				$("#colnames").html("");
-				$("#colnames").append("<span>X Y</span></br>");
+				$("#colnames").append("<span>X Y1 Y2</span></br>");
 				for (i = 0; i < data[0].length; i++) {
 					$("#colnames").append(
 					"<span><input type='radio' id='colx_"+i+"' name='X' value='"+i+"'>"+
@@ -51,53 +53,42 @@ and open the template in the editor.
 				}
 				
 				$('#colnames input:checkbox').change(function () {
-					updateGraph();
+					renderGraph(data2)
 				});
 			}
 			
-			function updateGraph() {
+			function renderGraph(data) {
+				if (typeof data === "undefined") {
+					return;
+				}
+				
 				//get all selected Y items
-				//add them to the graph (limited to y2 right now)
+				//add them to the graph
 				var selected = $('#colnames input:checkbox:checked');
-				var plot_left = [];
-				var plot_right = [];
+				var traces = [];
+				
 				for (i = 0; i < selected.length; i++) {
 					if ($(selected[i]).prop("name") === "Y1") {
-						plot_left.push(data2[$(selected[i]).val()]);
+						traces.push({
+							name: data[0][$(selected[i]).val()], 
+							legendgroup: 'group', 
+							x: data[1], 
+							y: data[Number($(selected[i]).val())+1], 
+							type: 'line'
+						});
 					}
 					else {
-						plot_right.push(data2[$(selected[i]).val()]);
+						traces.push({
+							name: data[0][$(selected[i]).val()], 
+							legendgroup: 'group2', 
+							yaxis: "y2",
+							x: data[1], 
+							y: data[Number($(selected[i]).val())+1], 
+							type: 'line'
+						});
 					}
 				}
-				renderGraph2(data2[0], plot_left, plot_right);
-			}
-			
-			function renderGraph2(x, y_left, y_right) {
-				if (typeof y_left === "undefined") {
-					y_left = [];
-				}
-				if (typeof y_right === "undefined") {
-					y_right = [];
-				}
-				TESTER = document.getElementById('tester');
-				var traces = [];
-				for (i = 0; i < y_left.length; i++) {
-					traces.push({
-					name: 'a',
-					legendgroup: 'group',
-					x: x, 
-					y: y_left[i], 
-					type: 'line'});
-				}
-				for (i = 0; i < y_right.length; i++) {
-					traces.push({
-					name: 'a',
-					legendgroup: 'group2',
-					x: x, 
-					y: y_right[i], 
-					yaxis: "y2",
-					type: 'line'});
-				}
+				
 				var layout = {
 					yaxis: {
 						title: 'the left'
@@ -112,30 +103,9 @@ and open the template in the editor.
 						y: 0.5
 					}
 				};
+				TESTER = document.getElementById('tester');
 				Plotly.newPlot(TESTER, traces, layout);
 			}
-			
-			function renderGraph(x, y, y2) {
-				TESTER = document.getElementById('tester');
-				var trace1 = {
-					x: x,
-					y: y,
-					type: 'line'
-				};
-				var data = [trace1];
-				
-				if (typeof y2 !== "undefined") {
-					var trace2 = {
-						x: x,
-						y: y2,
-						type: 'line'
-					};
-					data.push(trace2);
-				}
-				Plotly.newPlot( TESTER, data, {
-				margin: { t: 0 } } );
-			}
-			
 			
 			function handleDialog(event) {
 			  var files = event.target.files;
@@ -156,7 +126,7 @@ and open the template in the editor.
 				data = $.csv.toArrays(csv);
 				data2 = convertArrayFormat(data);
 				populateColumnNames(data);
-				renderGraph(data2[0], data2[1], data2[2]);
+				renderGraph(data2);
 				
 				$('#result').empty();
 				$('#result').html(JSON.stringify(data, null, 2));

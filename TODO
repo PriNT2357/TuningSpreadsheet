@@ -1,7 +1,4 @@
 TODO
 
-Convert the left and right plots to a single parameter
-- Will allow for passing in the plot name for legend easier
-- Will require fewer parameter quirks
-
 Implement X-Axis selection
+
