@@ -52,7 +52,7 @@ and open the template in the editor.
 					"</span><br/>");
 				}
 				
-				$('#colnames input:checkbox').change(function () {
+				$('#colnames input:checkbox,input:radio').change(function () {
 					renderGraph(data2)
 				});
 			}
@@ -64,26 +64,32 @@ and open the template in the editor.
 				
 				//get all selected Y items
 				//add them to the graph
-				var selected = $('#colnames input:checkbox:checked');
+				var y_selected = $('#colnames input:checkbox:checked');
+				var x_selected = $('#colnames input:radio:checked');
+				var x_axis = 1;
 				var traces = [];
 				
-				for (i = 0; i < selected.length; i++) {
-					if ($(selected[i]).prop("name") === "Y1") {
+				if (x_selected.length !== 0) {
+					x_axis = Number($(x_selected[0]).val())+1;
+				}
+				
+				for (i = 0; i < y_selected.length; i++) {
+					if ($(y_selected[i]).prop("name") === "Y1") {
 						traces.push({
-							name: data[0][$(selected[i]).val()], 
+							name: data[0][$(y_selected[i]).val()], 
 							legendgroup: 'group', 
-							x: data[1], 
-							y: data[Number($(selected[i]).val())+1], 
+							x: data[x_axis], 
+							y: data[Number($(y_selected[i]).val())+1], 
 							type: 'line'
 						});
 					}
 					else {
 						traces.push({
-							name: data[0][$(selected[i]).val()], 
+							name: data[0][$(y_selected[i]).val()], 
 							legendgroup: 'group2', 
 							yaxis: "y2",
-							x: data[1], 
-							y: data[Number($(selected[i]).val())+1], 
+							x: data[x_axis], 
+							y: data[Number($(y_selected[i]).val())+1], 
 							type: 'line'
 						});
 					}
@@ -111,14 +117,6 @@ and open the template in the editor.
 			  var files = event.target.files;
 			  var file = files[0];
 
-			  var fileInfo = `
-				<span style="font-weight:bold;">${escape(file.name)}</span><br>
-				- FileType: ${file.type || 'n/a'}<br>
-				- FileSize: ${file.size} bytes<br>
-				- LastModified: ${file.lastModifiedDate ? file.lastModifiedDate.toLocaleDateString() : 'n/a'}
-			  `;
-			  $('#file-info').append(fileInfo);
-
 			  var reader = new FileReader();
 			  reader.readAsText(file);
 			  reader.onload = function(event){
@@ -126,7 +124,7 @@ and open the template in the editor.
 				data = $.csv.toArrays(csv);
 				data2 = convertArrayFormat(data);
 				populateColumnNames(data);
-				renderGraph(data2);
+				//renderGraph(data2);
 				
 				$('#result').empty();
 				$('#result').html(JSON.stringify(data, null, 2));
@@ -136,17 +134,10 @@ and open the template in the editor.
 		</script>
 		<div id="container">
 			<section id="content">
-			  <h2>Description</h2>
-			  <p>Select your log file.</p>
-			  <hr>
 			  <h2>Input</h2>
 			  <input type="file" id="files" name="files[]" multiple />
 			  <hr />
-			  <h2>FileInfo</h2>
-			  <div id="file-info"></div>
-			  <hr />
-			  <h2>Result</h2>
-			  <textarea id="result" style="height: 250px;"></textarea>
+			  <textarea id="result" style="height: 50px;"></textarea>
 			  <div id="colnames"></div>
 			</section>
 		</div>
