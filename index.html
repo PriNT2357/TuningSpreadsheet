@@ -77,7 +77,6 @@ and open the template in the editor.
 					if ($(y_selected[i]).prop("name") === "Y1") {
 						traces.push({
 							name: data[0][$(y_selected[i]).val()], 
-							legendgroup: 'group', 
 							x: data[x_axis], 
 							y: data[Number($(y_selected[i]).val())+1], 
 							type: 'line'
@@ -86,7 +85,6 @@ and open the template in the editor.
 					else {
 						traces.push({
 							name: data[0][$(y_selected[i]).val()], 
-							legendgroup: 'group2', 
 							yaxis: "y2",
 							x: data[x_axis], 
 							y: data[Number($(y_selected[i]).val())+1], 
@@ -96,6 +94,9 @@ and open the template in the editor.
 				}
 				
 				var layout = {
+					uirevision:'true',
+					xaxis: {autorange: true},
+					yaxis: {autorange: true},
 					yaxis: {
 						title: 'the left'
 					},
@@ -110,7 +111,7 @@ and open the template in the editor.
 					}
 				};
 				TESTER = document.getElementById('tester');
-				Plotly.newPlot(TESTER, traces, layout);
+				Plotly.react(TESTER, traces, layout);
 			}
 			
 			function handleDialog(event) {
@@ -124,7 +125,7 @@ and open the template in the editor.
 				data = $.csv.toArrays(csv);
 				data2 = convertArrayFormat(data);
 				populateColumnNames(data);
-				//renderGraph(data2);
+				renderGraph(data2);
 				
 				$('#result').empty();
 				$('#result').html(JSON.stringify(data, null, 2));
@@ -142,7 +143,7 @@ and open the template in the editor.
 			</section>
 		</div>
 		<hr/>
-		<div id="tester_wrapper" style="width:800px;height:400px;">
+		<div id="tester_wrapper" style="height:800px;">
 			<div id="tester"></div>
 		</div>
 		
