@@ -53,13 +53,16 @@ and open the template in the editor.
 				}
 				
 				$('#colnames input:checkbox,input:radio').change(function () {
-					renderGraph(data2)
+					renderGraph(data2, $("select[name='graphType']:selected").val())
 				});
 			}
 			
-			function renderGraph(data) {
+			function renderGraph(data, graphType) {
 				if (typeof data === "undefined") {
 					return;
+				}
+				if (typeof graphType === "undefined") {
+					graphType = "line";
 				}
 				
 				//get all selected Y items
@@ -79,7 +82,7 @@ and open the template in the editor.
 							name: data[0][$(y_selected[i]).val()], 
 							x: data[x_axis], 
 							y: data[Number($(y_selected[i]).val())+1], 
-							type: 'line'
+							mode: graphType
 						});
 					}
 					else {
@@ -88,7 +91,7 @@ and open the template in the editor.
 							yaxis: "y2",
 							x: data[x_axis], 
 							y: data[Number($(y_selected[i]).val())+1], 
-							type: 'line'
+							mode: graphType
 						});
 					}
 				}
@@ -125,7 +128,7 @@ and open the template in the editor.
 				data = $.csv.toArrays(csv);
 				data2 = convertArrayFormat(data);
 				populateColumnNames(data);
-				renderGraph(data2);
+				renderGraph(data2, $("select[name='graphType']:selected").val());
 				
 				$('#result').empty();
 				$('#result').html(JSON.stringify(data, null, 2));
@@ -139,7 +142,15 @@ and open the template in the editor.
 			  <input type="file" id="files" name="files[]" multiple />
 			  <hr />
 			  <textarea id="result" style="height: 50px;"></textarea>
-			  <div id="colnames"></div>
+			  <div>
+				<div id="colnames"></div>
+				<div style="width:100px">Graph Style: 
+					<select name="graphType" onchange="renderGraph(data2, this.value)">
+						<option value="markers">Scatter</option>
+						<option value="line" selected="selected">Line</option>
+					</select>
+				</div>
+			  </div>
 			</section>
 		</div>
 		<hr/>
@@ -151,6 +162,7 @@ and open the template in the editor.
 		$(document).ready(function() {
 			TESTER = document.getElementById('tester');
 			Plotly.newPlot( TESTER, [{
+			mode: "markers",
 			x: [1, 2, 3, 4, 5],
 			y: [1, 2, 4, 8, 16] }], {
 			margin: { t: 0 } } );
