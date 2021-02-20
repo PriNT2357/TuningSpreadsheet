@@ -9,12 +9,15 @@ and open the template in the editor.
 		<title>Airboy's Spreadsheet Conversion</title>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<script src="http://code.jquery.com/jquery-3.3.1.slim.js"></script>
+		<link href="js/jquery-ui-1.12.1.custom/jquery-ui.css" rel="stylesheet">
+		<script src="js/jquery-ui-1.12.1.custom/external/jquery/jquery-3.5.1.min.js"></script>
+		<script src="js/jquery-ui-1.12.1.custom/jquery-ui.js"></script>
 		<script src="js/jquery.csv.js"></script>
 		<script src="js/helpers.js"></script>
 		<script src="js/plotly-latest.min.js"></script>
 	</head>
 	<body>
+		<!--For Import Tab-->
 		<script>
 			$(document).ready(function() {
 			  if(isFileAPIAvailable()) {
@@ -22,43 +25,73 @@ and open the template in the editor.
 			  }
 			});
 			
-			var data;
-			var data2;
+			var logfile = {"headers":[], "data": []};
+			
+			function handleDialog(event) {
+			  var files = event.target.files;
+			  var file = files[0];
 
+			  var reader = new FileReader();
+			  reader.readAsText(file);
+			  reader.onload = function(event){
+				var csv = event.target.result;
+				var data;
+				data = $.csv.toArrays(csv);
+				convertArrayFormat(data);
+				populateColumnNames(logfile);
+				renderGraph();
+				
+				$('#result').empty();
+				$('#result').html(JSON.stringify(logfile, null, 2));
+				
+			  }
+			}
+			
 			function convertArrayFormat(data) {
-				var out=[];
-				// Get column names
-				out.push(data[0]);
-				for (row=1;row<data.length;row++){
-				  for (col=0;col<data[0].length;col++){
-					if (typeof out[col+1] === "undefined") out[col+1]=[];
-					out[col+1].push(data[row][col]);
+				logfile.headers = data[0];
+				var colCount = data[0].length;
+				var rowCount = data.length;
+				for (var row=1;row<rowCount;row++){
+				  for (var col=0;col<colCount;col++){
+					if (typeof logfile.data[col] === "undefined") logfile.data[col]=[];
+					logfile.data[col].push(data[row][col]);
 				  }
 				}
-				return out;
+				data=null;
 			}
-
-			function populateColumnNames(data) {
-				//foreach data
-				//output a checkbox for the data[0]
+		</script>
+		
+		<!--For Settings Tab-->
+		<script>
+			function populateColumnNames(logfile) {
+				//foreach logfile header
+				//output a checkbox
 				$("#colnames").html("");
 				$("#colnames").append("<span>X Y1 Y2</span></br>");
-				for (i = 0; i < data[0].length; i++) {
+				for (var i = 0; i < logfile.headers.length; i++) {
 					$("#colnames").append(
 					"<span><input type='radio' id='colx_"+i+"' name='X' value='"+i+"'>"+
 					"<input type='checkbox' id='coly1_"+i+"' name='Y1' value='"+i+"'>"+
 					"<input type='checkbox' id='coly2_"+i+"' name='Y2' value='"+i+"'>"+
-					data[0][i]+
+					logfile.headers[i]+
 					"</span><br/>");
 				}
 				
 				$('#colnames input:checkbox,input:radio').change(function () {
-					renderGraph(data2, $("select[name='graphType']").val())
+					renderGraph();
 				});
 			}
 			
-			function renderGraph(data, graphType) {
-				if (typeof data === "undefined") {
+		</script>
+		
+		<!--For Graph Tab-->
+		<script>
+			
+			function renderGraph() {
+				var graphType = $("select[name='graphType']").val();
+				var graphWidth = $("#chartwidth").val();
+				var graphHeight = $("#chartheight").val();
+				if (typeof logfile === "undefined") {
 					return;
 				}
 				if (typeof graphType === "undefined") {
@@ -69,28 +102,28 @@ and open the template in the editor.
 				//add them to the graph
 				var y_selected = $('#colnames input:checkbox:checked');
 				var x_selected = $('#colnames input:radio:checked');
-				var x_axis = 1;
+				var x_axis = 0;
 				var traces = [];
 				
 				if (x_selected.length !== 0) {
-					x_axis = Number($(x_selected[0]).val())+1;
+					x_axis = Number($(x_selected[0]).val());
 				}
 				
 				for (i = 0; i < y_selected.length; i++) {
 					if ($(y_selected[i]).prop("name") === "Y1") {
 						traces.push({
-							name: data[0][$(y_selected[i]).val()], 
-							x: data[x_axis], 
-							y: data[Number($(y_selected[i]).val())+1], 
+							name: logfile.headers[$(y_selected[i]).val()], 
+							x: logfile.data[x_axis], 
+							y: logfile.data[Number($(y_selected[i]).val())], 
 							mode: graphType
 						});
 					}
 					else {
 						traces.push({
-							name: data[0][$(y_selected[i]).val()], 
+							name: logfile.headers[$(y_selected[i]).val()], 
 							yaxis: "y2",
-							x: data[x_axis], 
-							y: data[Number($(y_selected[i]).val())+1], 
+							x: logfile.data[x_axis], 
+							y: logfile.data[Number($(y_selected[i]).val())], 
 							mode: graphType
 						});
 					}
@@ -98,6 +131,8 @@ and open the template in the editor.
 				
 				var layout = {
 					uirevision:'true',
+					width: graphWidth,
+					height: graphHeight,
 					xaxis: {autorange: true},
 					yaxis: {
 						autorange: true,
@@ -117,46 +152,64 @@ and open the template in the editor.
 				Plotly.react(TESTER, traces, layout);
 			}
 			
-			function handleDialog(event) {
-			  var files = event.target.files;
-			  var file = files[0];
-
-			  var reader = new FileReader();
-			  reader.readAsText(file);
-			  reader.onload = function(event){
-				var csv = event.target.result;
-				data = $.csv.toArrays(csv);
-				data2 = convertArrayFormat(data);
-				populateColumnNames(data);
-				renderGraph(data2, $("select[name='graphType']").val());
-				
-				$('#result').empty();
-				$('#result').html(JSON.stringify(data, null, 2));
-				
-			  }
-			}
 		</script>
-		<div id="container">
-			<section id="content">
-			  <h2>Input</h2>
-			  <input type="file" id="files" name="files[]" multiple />
-			  <hr />
-			  <textarea id="result" style="height: 50px;"></textarea>
-			  <div>
-				<div id="colnames"></div>
-				<div style="width:100px">Graph Style: 
-					<select name="graphType" onchange="renderGraph(data2, this.value)">
-						<option value="markers">Scatter</option>
-						<option value="line" selected="selected">Line</option>
-					</select>
+		
+		<!--For Global Reference-->
+		<script>
+			$(document).ready(function() {
+				$( "#tabs" ).tabs();
+			});
+			
+		</script>
+		
+		
+		<div id="tabs">
+			<ul>
+				<li><a href="#tabs-1">Import</a></li>
+				<li><a href="#tabs-2">Settings</a></li>
+				<li><a href="#tabs-3">Graph</a></li>
+			</ul>
+			<div id="tabs-1" data-tabname="Import">
+				
+				<div id="container">
+					<section id="content">
+					  <h2>Input</h2>
+					  <input type="file" id="files" name="files[]" multiple />
+					  <hr />
+
+					</section>
 				</div>
-			  </div>
-			</section>
+			</div>
+			<div id="tabs-2" data-tabname="Settings">
+				<textarea id="result" style="height: 50px;"></textarea>
+				<div>
+					Traces
+				  <div id="colnames"></div>
+				  <div style="width:100%">Graph Style: 
+					  <select name="graphType" onchange="renderGraph()">
+						  <option value="markers">Scatter</option>
+						  <option value="line" selected="selected">Line</option>
+					  </select>
+				  </div>
+				</div>
+				<div>
+					Height: <input id="chartheight" type="number" min="400" max="1000" step="50" value="600" onchange="renderGraph()"/>
+					<br/>
+					Width: <input id="chartwidth" type="number" min="400" max="1500" step="50" value="1000" onchange="renderGraph()"/>
+				</div>
+				
+				
+			</div>
+			<div id="tabs-3" data-tabname="Graph">
+				<div id="tester_wrapper">
+					<div id="tester"></div>
+				</div>
+
+			</div>
 		</div>
+		
+		
 		<hr/>
-		<div id="tester_wrapper" style="height:800px;">
-			<div id="tester"></div>
-		</div>
 		
 		<script>
 		$(document).ready(function() {

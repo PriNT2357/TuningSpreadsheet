@@ -3,3 +3,7 @@ TODO
 Start work on outlining further macros
 Allow filters?
 Allow custom parameters/calculations
+Separate line items for each trace to allow for more customizations (ex: https://chart-studio.plotly.com/create/)
+- graph type per tract
+- keep same order (color)
+- change x/y
