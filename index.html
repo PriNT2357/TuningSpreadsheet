@@ -75,6 +75,10 @@ and open the template in the editor.
 					"<input type='checkbox' id='coly2_"+i+"' name='Y2' value='"+i+"'>"+
 					logfile.headers[i]+
 					"</span><br/>");
+					
+					$("#filters select[name='field']").append(
+					"<option value='"+i+"'>"+logfile.headers[i]+"</option>"
+					);
 				}
 				
 				$('#colnames input:checkbox,input:radio').change(function () {
@@ -98,6 +102,58 @@ and open the template in the editor.
 					graphType = "line";
 				}
 				
+				//-- At first, all rows will be shown
+				var filteredIndex=Object.keys(logfile.data);
+				//-- Keep track of rows that actually need to be shown
+				var newFilteredIndex=[];
+				$("#filters>span").each(function(){
+					var filterIndex = $(this).find("select[name='field']").val();
+					var filterComp  = $(this).find("select[name='comparison']").val();
+					var filterValue = $(this).find("input[name='compValue']").val();
+//					console.log("Selected field index: " + filterIndex + " => " + logfile.headers[filterIndex]);
+					$.each(logfile.data[filterIndex], function(k, v){
+//						console.log("logfile[k,v]: [" + k  + ", " + v + "]");
+//						console.log("Must be " + filterComp + " than " + filterValue);
+						//-- if index not in filteredIndex, it has been removed as a valid value
+						if ($.inArray(String(k), filteredIndex) === -1) {
+//							console.log("data row " + k + " is not in filteredIndex");
+						} else {
+							switch (Number(filterComp)) {
+								case 0:
+									if (Number(v) < Number(filterValue)) {
+										//-- keep index of value in filterValue so it can be displayed
+										newFilteredIndex.push(String(k));
+//										console.log("keeping value");
+									} else {
+										//-- remove index value since it should not be shown
+//										console.log("value is not less than filterValue");
+									}
+									break;
+							}
+						}
+					});
+					//-- Use the new filtered index as the baseline for the next filter
+					filteredIndex = newFilteredIndex;
+				});
+				//-- All filters have been applied, put together the data array for the graph
+				
+				//-- for each row in logfile.data, only include rows with an index in filteredIndex
+				var traceData = {data:[]};
+				$.each(logfile.data, function(rowIndex, rowData) {
+					traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
+						//console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
+						return filteredIndex.includes(String(index));
+					});
+				});
+
+//				var trace = {
+//							name: logfile.headers[$(y_selected[i]).val()], 
+//							x: null, 
+//							y: null, 
+//							mode: graphType
+//						};
+				
+				
 				//get all selected Y items
 				//add them to the graph
 				var y_selected = $('#colnames input:checkbox:checked');
@@ -109,12 +165,12 @@ and open the template in the editor.
 					x_axis = Number($(x_selected[0]).val());
 				}
 				
-				for (i = 0; i < y_selected.length; i++) {
+				for (var i = 0; i < y_selected.length; i++) {
 					if ($(y_selected[i]).prop("name") === "Y1") {
 						traces.push({
 							name: logfile.headers[$(y_selected[i]).val()], 
-							x: logfile.data[x_axis], 
-							y: logfile.data[Number($(y_selected[i]).val())], 
+							x: traceData.data[x_axis], 
+							y: traceData.data[Number($(y_selected[i]).val())], 
 							mode: graphType
 						});
 					}
@@ -122,8 +178,8 @@ and open the template in the editor.
 						traces.push({
 							name: logfile.headers[$(y_selected[i]).val()], 
 							yaxis: "y2",
-							x: logfile.data[x_axis], 
-							y: logfile.data[Number($(y_selected[i]).val())], 
+							x: traceData.data[x_axis], 
+							y: traceData.data[Number($(y_selected[i]).val())], 
 							mode: graphType
 						});
 					}
@@ -197,7 +253,25 @@ and open the template in the editor.
 					<br/>
 					Width: <input id="chartwidth" type="number" min="400" max="1500" step="50" value="1000" onchange="renderGraph()"/>
 				</div>
-				
+				<div>
+					<h3>Filters</h3>
+					<div id="filters">
+						<span>
+							<select name="field">
+								<option value="-1">None</option>
+							</select>
+							<select name="comparison">
+								<option value="0">&lt;</option>
+								<option value="1">&lt;=</option>
+								<option value="2">&gt;</option>
+								<option value="3">&gt;=</option>
+								<option value="4">=</option>
+								<option value="5">!=</option>
+							</select>
+							<input type="text" name="compValue"/>
+						</span>
+					</div>
+				</div>
 				
 			</div>
 			<div id="tabs-3" data-tabname="Graph">
