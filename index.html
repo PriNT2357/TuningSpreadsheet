@@ -142,6 +142,8 @@ and open the template in the editor.
 				$.each(logfile.data, function(rowIndex, rowData) {
 					traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
 						//console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
+						//-- Account for no filters being selected
+						if (filteredIndex.length === 0) return true;
 						return filteredIndex.includes(String(index));
 					});
 				});
