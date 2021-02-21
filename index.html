@@ -15,6 +15,16 @@ and open the template in the editor.
 		<script src="js/jquery.csv.js"></script>
 		<script src="js/helpers.js"></script>
 		<script src="js/plotly-latest.min.js"></script>
+		
+		<style>
+			body{
+				margin: 25px;
+			}
+			#filters div.template {
+				display: none;
+			}
+		</style>
+		
 	</head>
 	<body>
 		<!--For Import Tab-->
@@ -76,7 +86,7 @@ and open the template in the editor.
 					logfile.headers[i]+
 					"</span><br/>");
 					
-					$("#filters select[name='field']").append(
+					$("#filters div.template select[name='field']").append(
 					"<option value='"+i+"'>"+logfile.headers[i]+"</option>"
 					);
 				}
@@ -84,6 +94,23 @@ and open the template in the editor.
 				$('#colnames input:checkbox,input:radio').change(function () {
 					renderGraph();
 				});
+			}
+			
+			function addFilter() {
+				var newFilter = $("#filters div.template").clone(true);
+				$(newFilter).removeClass("template");
+				$("#filters").append(newFilter);
+				$(newFilter).show();
+			}
+			
+			function removeAllFilters() {
+				$("#filters>div:not(.template)>select").each(function(){
+					removeFilter($(this));
+				});
+			}
+			
+			function removeFilter(row) {
+				$(row).parent().remove();
 			}
 			
 		</script>
@@ -104,9 +131,9 @@ and open the template in the editor.
 				
 				//-- At first, all rows will be shown
 				var filteredIndex=Object.keys(logfile.data);
-				//-- Keep track of rows that actually need to be shown
-				var newFilteredIndex=[];
-				$("#filters>span").each(function(){
+				$("#filters>div:not(.template)").each(function(){
+					//-- Keep track of rows that actually need to be shown
+					var newFilteredIndex=[];
 					var filterIndex = $(this).find("select[name='field']").val();
 					var filterComp  = $(this).find("select[name='comparison']").val();
 					var filterValue = $(this).find("input[name='compValue']").val();
@@ -256,9 +283,17 @@ and open the template in the editor.
 					Width: <input id="chartwidth" type="number" min="400" max="1500" step="50" value="1000" onchange="renderGraph()"/>
 				</div>
 				<div>
-					<h3>Filters</h3>
+					<h3>
+						Filters
+						<span class="ui-button ui-widget ui-corner-all ui-button-icon-only" onclick="addFilter()">
+							<span class="ui-icon ui-icon-plusthick" title="Add new filter"></span>
+						</span>
+						<span class="ui-button ui-widget ui-corner-all ui-button-icon-only" onclick="removeAllFilters()">
+							<span class="ui-icon ui-icon-minusthick" title="Remove all filters"></span>
+						</span>
+					</h3>
 					<div id="filters">
-						<span>
+						<div class="template" data-type="filter">
 							<select name="field">
 								<option value="-1">None</option>
 							</select>
@@ -271,7 +306,11 @@ and open the template in the editor.
 								<option value="5">!=</option>
 							</select>
 							<input type="text" name="compValue"/>
-						</span>
+								
+							<span class="ui-button ui-widget ui-corner-all ui-button-icon-only" onclick="removeFilter($(this))">
+								<span class="ui-icon ui-icon-minusthick" title="Remove this filter"></span>
+							</span>
+						</div>
 					</div>
 				</div>
 				
