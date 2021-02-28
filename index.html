@@ -36,6 +36,7 @@ and open the template in the editor.
 			});
 			
 			var logfile = {"headers":[], "data": []};
+			var logLevel = 1;
 			
 			function handleDialog(event) {
 			  var files = event.target.files;
@@ -130,57 +131,97 @@ and open the template in the editor.
 				}
 				
 				//-- At first, all rows will be shown
-				var filteredIndex=Object.keys(logfile.data);
-				$("#filters>div:not(.template)").each(function(){
+				var filteredIndex=Object.keys(logfile.data[0]);
+				var originalRowCount = filteredIndex.length;
+				// Force them to be numbers for future reference
+				filteredIndex = filteredIndex.map(x => x * 1);
+				var traceData = {data:[]};
+				
+				// for each filter being applied
+				$("#filters>div:not(.template)").each(function(filterNumber, filterData){
+					if (logLevel >= 1) console.log("Applying filter " + (filterNumber+1) + " of " + $("#filters>div:not(.template)").length);
 					//-- Keep track of rows that actually need to be shown
 					var newFilteredIndex=[];
 					var filterIndex = $(this).find("select[name='field']").val();
 					var filterComp  = $(this).find("select[name='comparison']").val();
 					var filterValue = $(this).find("input[name='compValue']").val();
-//					console.log("Selected field index: " + filterIndex + " => " + logfile.headers[filterIndex]);
-					$.each(logfile.data[filterIndex], function(k, v){
-//						console.log("logfile[k,v]: [" + k  + ", " + v + "]");
-//						console.log("Must be " + filterComp + " than " + filterValue);
-						//-- if index not in filteredIndex, it has been removed as a valid value
-						if ($.inArray(String(k), filteredIndex) === -1) {
-//							console.log("data row " + k + " is not in filteredIndex");
+					if (logLevel >= 1) console.log("Selected field index: " + filterIndex + " => " + logfile.headers[filterIndex]);
+					
+					// for each row in the appropriate data column
+					$.each(logfile.data[filterIndex], function(rowIndex, rowData){
+						if ($.inArray(Number(rowIndex), filteredIndex) === -1 && $.inArray(Number(rowIndex), filteredIndex) === -1) {
+							// This row has been removed by another filter
+							if (logLevel >= 2) console.log("data row " + rowIndex + " is not in filteredIndex");
 						} else {
-							switch (Number(filterComp)) {
-								case 0:
-									if (Number(v) < Number(filterValue)) {
-										//-- keep index of value in filterValue so it can be displayed
-										newFilteredIndex.push(String(k));
-//										console.log("keeping value");
-									} else {
-										//-- remove index value since it should not be shown
-//										console.log("value is not less than filterValue");
+							// This row has yet to be filtered out, see if it needs to be removed
+							if (logLevel >= 2) console.log("logfile[rowIndex,rowData]: [" + rowIndex  + ", " + rowData + "]");
+							if (logLevel >= 2) console.log("Must be " + filterComp + " than " + filterValue);
+							switch(Number(filterComp)) {
+								case(0): // <
+									if (Number(rowData) < Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
 									}
-									break;
+								break;
+								case(1): // <=
+									if (Number(rowData) <= Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
+									}
+								break;
+								case(2): // >
+									if (Number(rowData) > Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
+									}
+								break;
+								case(3): // >=
+									if (Number(rowData) >= Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
+									}
+								break
+								case(4): // =
+									if (Number(rowData) == Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
+									}
+								break;
+								case(5): // !=
+									if (Number(rowData) != Number(filterValue)) {
+										newFilteredIndex.push(Number(rowIndex));
+										if (logLevel >= 2) console.log("Added to newFilteredIndex");
+									}
+								break;
+								default: // 
+								break;
 							}
 						}
 					});
 					//-- Use the new filtered index as the baseline for the next filter
 					filteredIndex = newFilteredIndex;
+					if (logLevel >= 1) console.log("Filtered down to " + newFilteredIndex.length + "/" + originalRowCount + " rows");
 				});
 				//-- All filters have been applied, put together the data array for the graph
+				if (logLevel >= 1) console.log("Final data row index has been built");
 				
-				//-- for each row in logfile.data, only include rows with an index in filteredIndex
+				// Remove the data rows from each column that are no longer in filteredIndex
 				var traceData = {data:[]};
+				// For each column of data
 				$.each(logfile.data, function(rowIndex, rowData) {
+					// Apply a filter function that only returns the rows of lofgile.data[rowIndex] that have an index in filteredIndex
 					traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
-						//console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
-						//-- Account for no filters being selected
-						if (filteredIndex.length === 0) return true;
-						return filteredIndex.includes(String(index));
+						if (logLevel >= 1) console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
+						if ($.inArray(Number(index), filteredIndex) !== -1) {
+							// row should be included
+							if (logLevel >= 1) console.log("Including row");
+							return true;
+						}
+						// row has been filtered out so should not be included in final result set
+						if (logLevel >= 1) console.log("Excluding row");
+						return false;
 					});
 				});
-
-//				var trace = {
-//							name: logfile.headers[$(y_selected[i]).val()], 
-//							x: null, 
-//							y: null, 
-//							mode: graphType
-//						};
 				
 				
 				//get all selected Y items
@@ -266,7 +307,6 @@ and open the template in the editor.
 				</div>
 			</div>
 			<div id="tabs-2" data-tabname="Settings">
-				<textarea id="result" style="height: 50px;"></textarea>
 				<div>
 					Traces
 				  <div id="colnames"></div>
