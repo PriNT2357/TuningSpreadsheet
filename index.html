@@ -60,6 +60,7 @@ and open the template in the editor.
 				var data;
 				data = $.csv.toArrays(csv);
 				convertArrayFormat(data);
+				selectPreset("default");
 				resetFilterFieldOptions();
 				populateColumnNames(logfile);
 				renderGraph();
@@ -86,6 +87,73 @@ and open the template in the editor.
 		
 		<!--For Settings Tab-->
 		<script>
+			
+			var presets = {
+				"default": {
+					"traces": {"x": [], "y1": [], "y2": []}, 
+					"graphStyle": "line"
+				},
+				"latency": {
+					"traces": {"x": ["Mass Airflow Sensor Voltage (V)"], "y1": ["A/F Correction #1 (%)"], "y2": []}, 
+					"graphStyle": "markers",
+					"filters": [
+						{"field": "Delta MAF", "comparison": "1", "compValue": "0.2"},
+						{"field": "Delta MAF", "comparison": "3", "compValue": "-0.2"}
+					]
+				}
+			};
+			
+			function selectPreset(selectedPreset) {
+				if (typeof selectedPreset === "undefined") {
+					selectedPreset = $("#selectedPresets>select[name='presets']").val();
+				}
+				else {
+					// help account for imports changing selected value back to default
+					$("#selectedPresets>select[name='presets']").val(selectedPreset);
+				}
+				
+				var presetValues = presets[selectedPreset];
+				// Select Traces
+				uncheckAllTraces();
+				$.each(presetValues.traces.x, function(k, v) {
+					if (logLevel >= 1) console.log("Selecting X preset: " + (v));
+					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
+					$("#colx_"+logfile.headers.indexOf(v)).prop("checked",true);
+				});
+				$.each(presetValues.traces.y1, function(k, v) {
+					if (logLevel >= 1) console.log("Selecting Y1 preset: " + (v));
+					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
+					$("#coly1_"+logfile.headers.indexOf(v)).prop("checked",true);
+				});
+				$.each(presetValues.traces.y2, function(k, v) {
+					if (logLevel >= 1) console.log("Selecting Y2 preset: " + (v));
+					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
+					$("#coly2_"+logfile.headers.indexOf(v)).prop("checked",true);
+				});
+				// Select Graph options
+				if (typeof presetValues.graphStyle !== "undefined") {
+					if (logLevel >= 1) console.log("Selecting Graph style: " + (presetValues.graphStyle));
+					$("select[name='graphType']").val(presetValues.graphStyle);
+				};
+				// Set up filters
+				removeAllFilters();
+				$.each(presetValues.filters, function(k, v) {
+					if (logLevel >= 1) console.log("Setting up filter: ");
+					if (logLevel >= 1) console.log(v);
+					
+					addFilter();
+					var lastFilter = $("#filters>div[data-type='filter']:not(.template)").last();
+					// Field
+					$(lastFilter[0]).find("select[name='field']").val(logfile.headers.indexOf(v.field));
+					// Comparison
+					$(lastFilter[0]).find("select[name='comparison']").val(v.comparison);
+					// Value
+					$(lastFilter[0]).find("input[name='compValue']").val(v.compValue);
+				});
+				
+				renderGraph();
+			}
+			
 			function populateColumnNames(logfile) {
 				//foreach logfile header
 				//output a checkbox
@@ -107,6 +175,12 @@ and open the template in the editor.
 				$('#colnames input:checkbox,input:radio').change(function () {
 					renderGraph();
 				});
+			}
+			
+			function uncheckAllTraces() {
+				$("[id^='colx_']").prop("checked",false);
+				$("[id^='coly1_']").prop("checked",false);
+				$("[id^='coly2_']").prop("checked",false);
 			}
 			
 			function addFilter() {
@@ -271,12 +345,14 @@ and open the template in the editor.
 				
 				
 				
-				if (x_selected.length !== 0) {
-					x_axis = Number($(x_selected[0]).val());
-				}
-				
 				var y1_title = ""; // left Y
 				var y2_title = ""; // right Y
+				var x_title  = "";
+				
+				if (x_selected.length !== 0) {
+					x_axis = Number($(x_selected[0]).val());
+					x_title = logfile.headers[$(x_selected[0]).val()] + "<br>";
+				}
 				
 				for (var i = 0; i < y_selected.length; i++) {
 					if ($(y_selected[i]).prop("name") === "Y1") {
@@ -304,7 +380,10 @@ and open the template in the editor.
 					uirevision:'true',
 					width: graphWidth,
 					height: graphHeight,
-					xaxis: {autorange: true},
+					xaxis: {
+						autorange: true, 
+						title: x_title
+					},
 					yaxis: {
 						autorange: true,
 						title: y1_title
@@ -353,14 +432,20 @@ and open the template in the editor.
 			</div>
 			<div id="tabs-2" data-tabname="Settings">
 				<div>
+					<div id="selectedPresets">Presets: 
+						<select name="presets" onchange="selectPreset()">
+							<option value="default">Default</option>
+							<option value="latency">Injector Latency</option>
+						</select>
+					</div>
 					Traces
-				  <div id="colnames"></div>
-				  <div style="width:100%">Graph Style: 
-					  <select name="graphType" onchange="renderGraph()">
-						  <option value="markers">Scatter</option>
-						  <option value="line" selected="selected">Line</option>
-					  </select>
-				  </div>
+					<div id="colnames"></div>
+					<div style="width:100%">Graph Style: 
+						<select name="graphType" onchange="renderGraph()">
+							<option value="markers">Scatter</option>
+							<option value="line" selected="selected">Line</option>
+						</select>
+					</div>
 				</div>
 				<div>
 					Height: <input id="chartheight" type="number" min="400" max="1000" step="50" value="600" onchange="renderGraph()"/>
