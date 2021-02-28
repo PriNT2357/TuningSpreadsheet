@@ -35,8 +35,19 @@ and open the template in the editor.
 			  }
 			});
 			
+			var timer = function(name) {
+				var start = new Date();
+				return {
+					stop: function() {
+						var end  = new Date();
+						var time = end.getTime() - start.getTime();
+						console.log('Timer:', name, 'finished in', time, 'ms');
+					}
+				}
+			};
+			
 			var logfile = {"headers":[], "data": []};
-			var logLevel = 1;
+			var logLevel = 0;
 			
 			function handleDialog(event) {
 			  var files = event.target.files;
@@ -123,7 +134,7 @@ and open the template in the editor.
 				var graphType = $("select[name='graphType']").val();
 				var graphWidth = $("#chartwidth").val();
 				var graphHeight = $("#chartheight").val();
-				if (typeof logfile === "undefined") {
+				if (typeof logfile === "undefined" || typeof logfile.data === "undefined" || typeof logfile.data[0] === "undefined") {
 					return;
 				}
 				if (typeof graphType === "undefined") {
@@ -136,6 +147,20 @@ and open the template in the editor.
 				// Force them to be numbers for future reference
 				filteredIndex = filteredIndex.map(x => x * 1);
 				var traceData = {data:[]};
+				
+				//get all selected Y items
+				//add them to the graph
+				var y_selected = $('#colnames input:checkbox:checked');
+				var x_selected = $('#colnames input:radio:checked');
+				var x_axis = 0;
+				var traces = [];
+				
+				// Some additional logic to increase performance
+				// Don't process unless there is something to graph
+				if ($(y_selected).length == 0)
+					return;
+				if ($(x_selected).length == 0)
+					return;
 				
 				// for each filter being applied
 				$("#filters>div:not(.template)").each(function(filterNumber, filterData){
@@ -205,31 +230,41 @@ and open the template in the editor.
 				//-- All filters have been applied, put together the data array for the graph
 				if (logLevel >= 1) console.log("Final data row index has been built");
 				
+				// apply the filter to data only if it should be showing (helps speed up processing)
+				var processColumns = [];
+				for (var i = 0; i < y_selected.length; i++) {
+					processColumns.push(Number($(y_selected[i]).val()));
+				}
+				for (var i = 0; i < x_selected.length; i++) {
+					processColumns.push(Number($(x_selected[i]).val()));
+				}
+				if (logLevel >= 1) console.log("only processColumns: ");
+				if (logLevel >= 1) console.log(processColumns);
+				
 				// Remove the data rows from each column that are no longer in filteredIndex
 				var traceData = {data:[]};
 				// For each column of data
 				$.each(logfile.data, function(rowIndex, rowData) {
-					// Apply a filter function that only returns the rows of lofgile.data[rowIndex] that have an index in filteredIndex
-					traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
-						if (logLevel >= 1) console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
-						if ($.inArray(Number(index), filteredIndex) !== -1) {
-							// row should be included
-							if (logLevel >= 1) console.log("Including row");
-							return true;
-						}
-						// row has been filtered out so should not be included in final result set
-						if (logLevel >= 1) console.log("Excluding row");
-						return false;
-					});
+					if ($.inArray(Number(rowIndex), processColumns) === -1) {
+						// do not want to graph this item
+					}
+					else {
+						// Apply a filter function that only returns the rows of lofgile.data[rowIndex] that have an index in filteredIndex
+						traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
+							if (logLevel >= 1) console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
+							if ($.inArray(Number(index), filteredIndex) !== -1) {
+								// row should be included
+								if (logLevel >= 1) console.log("Including row");
+								return true;
+							}
+							// row has been filtered out so should not be included in final result set
+							if (logLevel >= 1) console.log("Excluding row");
+							return false;
+						});
+					}
 				});
 				
 				
-				//get all selected Y items
-				//add them to the graph
-				var y_selected = $('#colnames input:checkbox:checked');
-				var x_selected = $('#colnames input:radio:checked');
-				var x_axis = 0;
-				var traces = [];
 				
 				if (x_selected.length !== 0) {
 					x_axis = Number($(x_selected[0]).val());
@@ -330,6 +365,9 @@ and open the template in the editor.
 						</span>
 						<span class="ui-button ui-widget ui-corner-all ui-button-icon-only" onclick="removeAllFilters()">
 							<span class="ui-icon ui-icon-minusthick" title="Remove all filters"></span>
+						</span>
+						<span>
+							<button onclick="renderGraph()">Apply</button>
 						</span>
 					</h3>
 					<div id="filters">
