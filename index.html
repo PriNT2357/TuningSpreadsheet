@@ -275,8 +275,12 @@ and open the template in the editor.
 					x_axis = Number($(x_selected[0]).val());
 				}
 				
+				var y1_title = ""; // left Y
+				var y2_title = ""; // right Y
+				
 				for (var i = 0; i < y_selected.length; i++) {
 					if ($(y_selected[i]).prop("name") === "Y1") {
+						y1_title += logfile.headers[$(y_selected[i]).val()] + "<br>";
 						traces.push({
 							name: logfile.headers[$(y_selected[i]).val()], 
 							x: traceData.data[x_axis], 
@@ -285,6 +289,7 @@ and open the template in the editor.
 						});
 					}
 					else {
+						y2_title += logfile.headers[$(y_selected[i]).val()] + "<br>";
 						traces.push({
 							name: logfile.headers[$(y_selected[i]).val()], 
 							yaxis: "y2",
@@ -302,10 +307,10 @@ and open the template in the editor.
 					xaxis: {autorange: true},
 					yaxis: {
 						autorange: true,
-						title: 'the left'
+						title: y1_title
 					},
 					yaxis2: {
-						title: 'the right',
+						title: y2_title,
 						overlaying: 'y',
 						side: 'right'
 					},
