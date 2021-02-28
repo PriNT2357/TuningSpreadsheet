@@ -60,6 +60,7 @@ and open the template in the editor.
 				var data;
 				data = $.csv.toArrays(csv);
 				convertArrayFormat(data);
+				resetFilterFieldOptions();
 				populateColumnNames(logfile);
 				renderGraph();
 				
@@ -123,6 +124,10 @@ and open the template in the editor.
 			
 			function removeFilter(row) {
 				$(row).parent().remove();
+			}
+			
+			function resetFilterFieldOptions() {
+				$("#filters div.template select[name='field']").empty();
 			}
 			
 		</script>
