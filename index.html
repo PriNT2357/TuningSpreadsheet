@@ -99,7 +99,7 @@ and open the template in the editor.
 					"graphStyle": "line"
 				},
 				"latency": {
-					"traces": {"x": ["MassAirflowSensorVoltageV"], "y1": ["AFCorrection1"], "y2": []}, 
+					"traces": {"x": ["MassAirflowSensorVoltageV"], "y1": ["AFCorrection"], "y2": []}, 
 					"graphStyle": "markers",
 					"filters": [
 						{"field": "DeltaMAF", "comparison": "1", "compValue": "0.2"},
@@ -123,17 +123,17 @@ and open the template in the editor.
 				$.each(presetValues.traces.x, function(k, v) {
 					if (logLevel >= 1) console.log("Selecting X preset: " + (v));
 					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
-					$("#colx_"+logfile.headers.indexOf(v)).prop("checked",true);
+					$("#colnames").find("input[id^='colx_'][value='"+v+"']").prop("checked",true);
 				});
 				$.each(presetValues.traces.y1, function(k, v) {
 					if (logLevel >= 1) console.log("Selecting Y1 preset: " + (v));
 					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
-					$("#coly1_"+logfile.headers.indexOf(v)).prop("checked",true);
+					$("#colnames").find("input[id^='coly1_'][value='"+v+"']").prop("checked",true);
 				});
 				$.each(presetValues.traces.y2, function(k, v) {
 					if (logLevel >= 1) console.log("Selecting Y2 preset: " + (v));
 					if (logLevel >= 2) console.log("            index : " + logfile.headers.indexOf(v));
-					$("#coly2_"+logfile.headers.indexOf(v)).prop("checked",true);
+					$("#colnames").find("input[id^='coly2_'][value='"+v+"']").prop("checked",true);
 				});
 				// Select Graph options
 				if (typeof presetValues.graphStyle !== "undefined") {
@@ -149,7 +149,7 @@ and open the template in the editor.
 					addFilter();
 					var lastFilter = $("#filters>div[data-type='filter']:not(.template)").last();
 					// Field
-					$(lastFilter[0]).find("select[name='field']").val(logfile.headers.indexOf(v.field));
+					$(lastFilter[0]).find("select[name='field']").val(v.field);
 					// Comparison
 					$(lastFilter[0]).find("select[name='comparison']").val(v.comparison);
 					// Value
@@ -225,7 +225,7 @@ and open the template in the editor.
 				if (typeof graphType === "undefined") {
 					graphType = "line";
 				}
-				
+				var renderTime = new timer('render time');
 				var traceData = {data:[]};
 				
 				//get all selected Y items
@@ -249,9 +249,9 @@ and open the template in the editor.
 				// for each filter being applied build the filter query
 				$("#filters>div:not(.template)").each(function(filterNumber, filterData){
 					if (logLevel >= 1) console.log("Applying filter " + (filterNumber+1) + " of " + $("#filters>div:not(.template)").length);
-					var filterField = $(filterData).find("select[name='field']").val().toString();
-					var filterComp  = $(filterData).find("select[name='comparison']").val().toString();
-					var filterValue = $(filterData).find("input[name='compValue']").val().toString();
+					var filterField = $(filterData).find("select[name='field']").val();
+					var filterComp  = $(filterData).find("select[name='comparison']").val();
+					var filterValue = $(filterData).find("input[name='compValue']").val();
 					
 					// logDC.query().filter({AFCorrection__gt: 5, VehicleSpeedmph__gte: 10})
 					switch(Number(filterComp)) {
@@ -350,6 +350,7 @@ and open the template in the editor.
 				};
 				TESTER = document.getElementById('tester');
 				Plotly.react(TESTER, traces, layout);
+				renderTime.stop();
 			}
 			
 		</script>
