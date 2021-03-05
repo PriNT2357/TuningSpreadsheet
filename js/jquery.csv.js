@@ -817,6 +817,9 @@ RegExp.escape = function (s) {
       // parse the csv
       var headerLine = $.csv.parsers.splitLines(csv, headerOptions);
       var headers = $.csv.toArray(headerLine[0], headerOptions);
+	  
+	  // Custom - clean up headers
+	  headers = headers.map(obj => { return obj.replace(/[^a-zA-Z]/g, '')});
 
       // fetch the data
       lines = $.csv.parsers.splitLines(csv, options);

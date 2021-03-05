@@ -15,6 +15,7 @@ and open the template in the editor.
 		<script src="js/jquery.csv.js"></script>
 		<script src="js/helpers.js"></script>
 		<script src="js/plotly-latest.min.js"></script>
+		<script src="js/DataCollection/data_collection-1.1.6.js"></script>
 		
 		<style>
 			body{
@@ -48,6 +49,7 @@ and open the template in the editor.
 			
 			var logfile = {"headers":[], "data": []};
 			var logLevel = 0;
+			var logDC;
 			
 			function handleDialog(event) {
 			  var files = event.target.files;
@@ -58,7 +60,10 @@ and open the template in the editor.
 			  reader.onload = function(event){
 				var csv = event.target.result;
 				var data;
+				logfile = {"headers":[], "data": []};
 				data = $.csv.toArrays(csv);
+				var dataObjects = $.csv.toObjects(csv);
+				logDC = new DataCollection(dataObjects);
 				convertArrayFormat(data);
 				selectPreset("default");
 				resetFilterFieldOptions();
@@ -66,21 +71,21 @@ and open the template in the editor.
 				renderGraph();
 				
 				$('#result').empty();
-				$('#result').html(JSON.stringify(logfile, null, 2));
+				$('#result').html(JSON.stringify(dataObjects[0], null, 2));
 				
 			  }
 			}
 			
 			function convertArrayFormat(data) {
 				logfile.headers = data[0];
-				var colCount = data[0].length;
-				var rowCount = data.length;
-				for (var row=1;row<rowCount;row++){
-				  for (var col=0;col<colCount;col++){
-					if (typeof logfile.data[col] === "undefined") logfile.data[col]=[];
-					logfile.data[col].push(data[row][col]);
-				  }
-				}
+			//	var colCount = data[0].length;
+			//	var rowCount = data.length;
+			//	for (var row=1;row<rowCount;row++){
+			//	  for (var col=0;col<colCount;col++){
+			//		if (typeof logfile.data[col] === "undefined") logfile.data[col]=[];
+			//		logfile.data[col].push(data[row][col]);
+			//	  }
+			//	}
 				data=null;
 			}
 		</script>
@@ -94,11 +99,11 @@ and open the template in the editor.
 					"graphStyle": "line"
 				},
 				"latency": {
-					"traces": {"x": ["Mass Airflow Sensor Voltage (V)"], "y1": ["A/F Correction #1 (%)"], "y2": []}, 
+					"traces": {"x": ["MassAirflowSensorVoltageV"], "y1": ["AFCorrection1"], "y2": []}, 
 					"graphStyle": "markers",
 					"filters": [
-						{"field": "Delta MAF", "comparison": "1", "compValue": "0.2"},
-						{"field": "Delta MAF", "comparison": "3", "compValue": "-0.2"}
+						{"field": "DeltaMAF", "comparison": "1", "compValue": "0.2"},
+						{"field": "DeltaMAF", "comparison": "3", "compValue": "-0.2"}
 					]
 				}
 			};
@@ -159,16 +164,17 @@ and open the template in the editor.
 				//output a checkbox
 				$("#colnames").html("");
 				$("#colnames").append("<span>X Y1 Y2</span></br>");
-				for (var i = 0; i < logfile.headers.length; i++) {
+				var logDCKeys = Object.keys(logDC.query().first());
+				for (var i = 0; i < logDCKeys.length; i++) {
 					$("#colnames").append(
-					"<span><input type='radio' id='colx_"+i+"' name='X' value='"+i+"'>"+
-					"<input type='checkbox' id='coly1_"+i+"' name='Y1' value='"+i+"'>"+
-					"<input type='checkbox' id='coly2_"+i+"' name='Y2' value='"+i+"'>"+
+					"<span><input type='radio' id='colx_"+i+"' name='X' value='"+logDCKeys[i]+"'>"+
+					"<input type='checkbox' id='coly1_"+i+"' name='Y1' value='"+logDCKeys[i]+"'>"+
+					"<input type='checkbox' id='coly2_"+i+"' name='Y2' value='"+logDCKeys[i]+"'>"+
 					logfile.headers[i]+
 					"</span><br/>");
 					
 					$("#filters div.template select[name='field']").append(
-					"<option value='"+i+"'>"+logfile.headers[i]+"</option>"
+					"<option value='"+logDCKeys[i]+"'>"+logfile.headers[i]+"</option>"
 					);
 				}
 				
@@ -214,17 +220,12 @@ and open the template in the editor.
 				var graphWidth = $("#chartwidth").val();
 				var graphHeight = $("#chartheight").val();
 				if (typeof logfile === "undefined" || typeof logfile.data === "undefined" || typeof logfile.data[0] === "undefined") {
-					return;
+				//	return;
 				}
 				if (typeof graphType === "undefined") {
 					graphType = "line";
 				}
 				
-				//-- At first, all rows will be shown
-				var filteredIndex=Object.keys(logfile.data[0]);
-				var originalRowCount = filteredIndex.length;
-				// Force them to be numbers for future reference
-				filteredIndex = filteredIndex.map(x => x * 1);
 				var traceData = {data:[]};
 				
 				//get all selected Y items
@@ -233,6 +234,9 @@ and open the template in the editor.
 				var x_selected = $('#colnames input:radio:checked');
 				var x_axis = 0;
 				var traces = [];
+				var y1_title = ""; // left Y
+				var y2_title = ""; // right Y
+				var x_title  = "";
 				
 				// Some additional logic to increase performance
 				// Don't process unless there is something to graph
@@ -241,140 +245,86 @@ and open the template in the editor.
 				if ($(x_selected).length == 0)
 					return;
 				
-				// for each filter being applied
+				var filterQuery = {};
+				// for each filter being applied build the filter query
 				$("#filters>div:not(.template)").each(function(filterNumber, filterData){
 					if (logLevel >= 1) console.log("Applying filter " + (filterNumber+1) + " of " + $("#filters>div:not(.template)").length);
-					//-- Keep track of rows that actually need to be shown
-					var newFilteredIndex=[];
-					var filterIndex = $(this).find("select[name='field']").val();
-					var filterComp  = $(this).find("select[name='comparison']").val();
-					var filterValue = $(this).find("input[name='compValue']").val();
-					if (logLevel >= 1) console.log("Selected field index: " + filterIndex + " => " + logfile.headers[filterIndex]);
+					var filterField = $(filterData).find("select[name='field']").val().toString();
+					var filterComp  = $(filterData).find("select[name='comparison']").val().toString();
+					var filterValue = $(filterData).find("input[name='compValue']").val().toString();
 					
-					// for each row in the appropriate data column
-					$.each(logfile.data[filterIndex], function(rowIndex, rowData){
-						if ($.inArray(Number(rowIndex), filteredIndex) === -1 && $.inArray(Number(rowIndex), filteredIndex) === -1) {
-							// This row has been removed by another filter
-							if (logLevel >= 2) console.log("data row " + rowIndex + " is not in filteredIndex");
-						} else {
-							// This row has yet to be filtered out, see if it needs to be removed
-							if (logLevel >= 2) console.log("logfile[rowIndex,rowData]: [" + rowIndex  + ", " + rowData + "]");
-							if (logLevel >= 2) console.log("Must be " + filterComp + " than " + filterValue);
-							switch(Number(filterComp)) {
-								case(0): // <
-									if (Number(rowData) < Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break;
-								case(1): // <=
-									if (Number(rowData) <= Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break;
-								case(2): // >
-									if (Number(rowData) > Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break;
-								case(3): // >=
-									if (Number(rowData) >= Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break
-								case(4): // =
-									if (Number(rowData) == Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break;
-								case(5): // !=
-									if (Number(rowData) != Number(filterValue)) {
-										newFilteredIndex.push(Number(rowIndex));
-										if (logLevel >= 2) console.log("Added to newFilteredIndex");
-									}
-								break;
-								default: // 
-								break;
-							}
-						}
-					});
-					//-- Use the new filtered index as the baseline for the next filter
-					filteredIndex = newFilteredIndex;
-					if (logLevel >= 1) console.log("Filtered down to " + newFilteredIndex.length + "/" + originalRowCount + " rows");
+					// logDC.query().filter({AFCorrection__gt: 5, VehicleSpeedmph__gte: 10})
+					switch(Number(filterComp)) {
+						case(0): // <
+								filterField += "__lt";
+							break;
+							case(1): // <=
+								filterField += "__lte";
+							break;
+							case(2): // >
+								filterField += "__gt";
+							break;
+							case(3): // >=
+								filterField += "__gte";
+							break
+							case(4): // =
+								filterField += "__is";
+							break;
+							case(5): // !=
+								filterField += "__not";
+							break;
+							default: // 
+							break;
+					}
+					filterQuery[filterField] = filterValue;
+					
 				});
 				//-- All filters have been applied, put together the data array for the graph
 				if (logLevel >= 1) console.log("Final data row index has been built");
 				
-				// apply the filter to data only if it should be showing (helps speed up processing)
-				var processColumns = [];
-				for (var i = 0; i < y_selected.length; i++) {
-					processColumns.push(Number($(y_selected[i]).val()));
-				}
-				for (var i = 0; i < x_selected.length; i++) {
-					processColumns.push(Number($(x_selected[i]).val()));
-				}
-				if (logLevel >= 1) console.log("only processColumns: ");
-				if (logLevel >= 1) console.log(processColumns);
-				
-				// Remove the data rows from each column that are no longer in filteredIndex
-				var traceData = {data:[]};
-				// For each column of data
-				$.each(logfile.data, function(rowIndex, rowData) {
-					if ($.inArray(Number(rowIndex), processColumns) === -1) {
-						// do not want to graph this item
-					}
-					else {
-						// Apply a filter function that only returns the rows of lofgile.data[rowIndex] that have an index in filteredIndex
-						traceData.data[rowIndex] = rowData.filter((data, index, arr) => {
-							if (logLevel >= 1) console.log("rowIndex["+rowIndex+"]" + " index[" +  index + "]: " + filteredIndex.includes(String(index)));
-							if ($.inArray(Number(index), filteredIndex) !== -1) {
-								// row should be included
-								if (logLevel >= 1) console.log("Including row");
-								return true;
-							}
-							// row has been filtered out so should not be included in final result set
-							if (logLevel >= 1) console.log("Excluding row");
-							return false;
-						});
-					}
-				});
+				// apply filter to data
+				var toPlot = logDC.query().filter(filterQuery);
 				
 				
-				
-				var y1_title = ""; // left Y
-				var y2_title = ""; // right Y
-				var x_title  = "";
-				
+				// get data into format used by plotly
+				// for each selected X
 				if (x_selected.length !== 0) {
-					x_axis = Number($(x_selected[0]).val());
-					x_title = logfile.headers[$(x_selected[0]).val()] + "<br>";
+					//x_axis = Number($(x_selected[0]).val());
+					x_axis = $(x_selected[0]).val();
+					//x_title = logfile.headers[$(x_selected[0]).val()] + "<br>";
+					x_title = logfile.headers[$(x_selected[0]).prop("id").substr("colx_".length)] + "<br>";
 				}
 				
+				// for each selected Y
 				for (var i = 0; i < y_selected.length; i++) {
 					if ($(y_selected[i]).prop("name") === "Y1") {
-						y1_title += logfile.headers[$(y_selected[i]).val()] + "<br>";
+						y1_title += logfile.headers[$(y_selected[i]).prop("id").substr("coly1_".length)] + "<br>";
+						data = [];
 						traces.push({
-							name: logfile.headers[$(y_selected[i]).val()], 
-							x: traceData.data[x_axis], 
-							y: traceData.data[Number($(y_selected[i]).val())], 
+							name: logfile.headers[$(y_selected[i]).prop("id").substr("coly1_".length)], 
+							x: toPlot.values().map(function(o){return o[x_axis]}),
+							y: toPlot.values().map(function(o){return o[$(y_selected[i]).val()]}),
 							mode: graphType
 						});
 					}
 					else {
-						y2_title += logfile.headers[$(y_selected[i]).val()] + "<br>";
+						y2_title += logfile.headers[$(y_selected[i]).prop("id").substr("coly2_".length)] + "<br>";
 						traces.push({
-							name: logfile.headers[$(y_selected[i]).val()], 
+							name: logfile.headers[$(y_selected[i]).prop("id").substr("coly2_".length)], 
 							yaxis: "y2",
-							x: traceData.data[x_axis], 
-							y: traceData.data[Number($(y_selected[i]).val())], 
+							x: toPlot.values().map(function(o){return o[x_axis]}),
+							y: toPlot.values().map(function(o){return o[$(y_selected[i]).val()]}),
 							mode: graphType
 						});
 					}
 				}
+				
+				
+				
+				
+//graphType = "line";var y_selected = $('#colnames input:checkbox:checked');var x_selected = $('#colnames input:radio:checked');var x_axis = 0;var traces = [];
+				
+				
 				
 				var layout = {
 					uirevision:'true',
@@ -420,7 +370,7 @@ and open the template in the editor.
 				<li><a href="#tabs-3">Graph</a></li>
 			</ul>
 			<div id="tabs-1" data-tabname="Import">
-				
+				<textarea id="result" style="height: 50px;"></textarea>
 				<div id="container">
 					<section id="content">
 					  <h2>Input</h2>
